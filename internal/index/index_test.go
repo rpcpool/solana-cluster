@@ -141,7 +141,7 @@ func TestDB(t *testing.T) {
 		},
 		db.GetBestSnapshots(-1))
 
-    assert.Equal(t,
+	assert.Equal(t,
 		[]*SnapshotEntry{
 			snapshotEntry4,
 		},
@@ -150,6 +150,7 @@ func TestDB(t *testing.T) {
 	assert.Equal(t,
 		[]*SnapshotEntry{
 			snapshotEntry1,
-			snapshotEntry3
-		}, 	)
+			snapshotEntry3,
+		},
+		db.GetBestSnapshotsByGroup(-1, "mainnet"))
 }

@@ -89,11 +89,7 @@ func (d *DB) GetAllSnapshots() (entries []*SnapshotEntry) {
 func (d *DB) GetBestSnapshotsByGroup(max int, group string) (entries []*SnapshotEntry) {
 	var res memdb.ResultIterator
 	var err error
-	if group != "" {
-		res, err = d.DB.Txn(false).Get(tableSnapshotEntry, "slot_by_group", group)
-	} else {
-		res, err = d.DB.Txn(false).Get(tableSnapshotEntry, "slot")
-	}
+	res, err = d.DB.Txn(false).Get(tableSnapshotEntry, "slot")
 
 	if err != nil {
 		panic("getting best snapshots failed: " + err.Error())
@@ -102,6 +98,9 @@ func (d *DB) GetBestSnapshotsByGroup(max int, group string) (entries []*Snapshot
 		entry := res.Next()
 		if entry == nil {
 			break
+		}
+		if group != "" && entry.(*SnapshotEntry).Group != group {
+			continue
 		}
 		entries = append(entries, entry.(*SnapshotEntry))
 	}
