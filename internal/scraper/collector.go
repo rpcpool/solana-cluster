@@ -84,7 +84,7 @@ func (c *Collector) run() {
 type ProbeResult struct {
 	Time   time.Time
 	Target string
-	Group string
+	Group  string
 	Infos  []*types.SnapshotInfo
 	Err    error
 }
