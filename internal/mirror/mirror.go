@@ -65,7 +65,7 @@ func (w *Worker) Run(ctx context.Context) {
 
 func (w *Worker) tick(ctx context.Context) {
 	w.Log.Debug("Tick")
-	sources, err := w.Tracker.GetBestSnapshots(ctx, w.SyncCount)
+	sources, err := w.Tracker.GetBestSnapshots(ctx, "", w.SyncCount)
 	if err != nil {
 		w.Log.Error("Failed to find new snapshots", zap.Error(err))
 		return

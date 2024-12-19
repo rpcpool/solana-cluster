@@ -52,8 +52,8 @@ func (d *DB) UpsertSnapshots(entries ...*SnapshotEntry) {
 
 // GetSnapshotsByTarget returns all snapshots served by a host
 // ordered by newest to oldest.
-func (d *DB) GetSnapshotsByTarget(target string) (entries []*SnapshotEntry) {
-	res, err := d.DB.Txn(false).Get(tableSnapshotEntry, "id_prefix", target)
+func (d *DB) GetSnapshotsByTarget(group string, target string) (entries []*SnapshotEntry) {
+	res, err := d.DB.Txn(false).Get(tableSnapshotEntry, "id_prefix", group, target)
 	if err != nil {
 		panic("getting snapshots by target failed: " + err.Error())
 	}
@@ -67,9 +67,8 @@ func (d *DB) GetSnapshotsByTarget(target string) (entries []*SnapshotEntry) {
 	return
 }
 
-// GetAllSnapshots returns a list of all snapshots.
-func (d *DB) GetAllSnapshots() (entries []*SnapshotEntry) {
-	iter, err := d.DB.Txn(false).LowerBound(tableSnapshotEntry, "id", "", uint64(0))
+func (d *DB) GetAllSnapshotsByGroup(group string) (entries []*SnapshotEntry) {
+	iter, err := d.DB.Txn(false).LowerBound(tableSnapshotEntry, "id", "", "", uint64(0))
 	if err != nil {
 		panic("getting best snapshots failed: " + err.Error())
 	}
@@ -78,16 +77,25 @@ func (d *DB) GetAllSnapshots() (entries []*SnapshotEntry) {
 		if el == nil {
 			break
 		}
+		if group != "" && el.(*SnapshotEntry).Group != group {
+			continue
+		}
 		entries = append(entries, el.(*SnapshotEntry))
 	}
 	return
 }
 
+// GetAllSnapshots returns a list of all snapshots.
+func (d *DB) GetAllSnapshots() (entries []*SnapshotEntry) {
+	return d.GetAllSnapshotsByGroup("")
+}
+
 // GetBestSnapshots returns newest-to-oldest snapshots.
 // The `max` argument controls the max number of snapshots to return.
 // If max is negative, it returns all snapshots.
-func (d *DB) GetBestSnapshots(max int) (entries []*SnapshotEntry) {
+func (d *DB) GetBestSnapshotsByGroup(group string, max int) (entries []*SnapshotEntry) {
 	res, err := d.DB.Txn(false).Get(tableSnapshotEntry, "slot")
+
 	if err != nil {
 		panic("getting best snapshots failed: " + err.Error())
 	}
@@ -96,14 +104,25 @@ func (d *DB) GetBestSnapshots(max int) (entries []*SnapshotEntry) {
 		if entry == nil {
 			break
 		}
+		if group != "" && entry.(*SnapshotEntry).Group != group {
+			continue
+		}
 		entries = append(entries, entry.(*SnapshotEntry))
 	}
 	return
 }
 
 // Fetches the snapshots that are at a given slot.
-func (d *DB) GetSnapshotsAtSlot(slot uint64) (entries []*SnapshotEntry) {
-	res, err := d.DB.Txn(false).Get(tableSnapshotEntry, "base_slot", slot)
+func (d *DB) GetSnapshotsAtSlotByGroup(group string, slot uint64) (entries []*SnapshotEntry) {
+	var res memdb.ResultIterator
+	var err error
+
+	if group != "" {
+		res, err = d.DB.Txn(false).Get(tableSnapshotEntry, "base_slot_by_group", slot, group)
+	} else {
+		res, err = d.DB.Txn(false).Get(tableSnapshotEntry, "base_slot", slot)
+	}
+
 	if err != nil {
 		panic("getting best snapshots failed: " + err.Error())
 	}
@@ -112,6 +131,16 @@ func (d *DB) GetSnapshotsAtSlot(slot uint64) (entries []*SnapshotEntry) {
 		entries = append(entries, entry.(*SnapshotEntry))
 	}
 	return
+}
+
+// Fetches the best snapshots
+func (d *DB) GetBestSnapshots(max int) (entries []*SnapshotEntry) {
+	return d.GetBestSnapshotsByGroup("", max)
+}
+
+// Fetches the snapshots that are at a given slot.
+func (d *DB) GetSnapshotsAtSlot(slot uint64) (entries []*SnapshotEntry) {
+	return d.GetSnapshotsAtSlotByGroup("", slot)
 }
 
 // DeleteOldSnapshots delete snapshot entry older than the given timestamp.
@@ -140,10 +169,10 @@ func (d *DB) DeleteOldSnapshots(minTime time.Time) (n int) {
 
 // DeleteSnapshotsByTarget deletes all snapshots owned by a given target.
 // Returns the number of deletions made.
-func (d *DB) DeleteSnapshotsByTarget(target string) int {
+func (d *DB) DeleteSnapshotsByTarget(group string, target string) int {
 	txn := d.DB.Txn(true)
 	defer txn.Abort()
-	n, err := txn.DeleteAll(tableSnapshotEntry, "id_prefix", target)
+	n, err := txn.DeleteAll(tableSnapshotEntry, "id_prefix", group, target)
 	if err != nil {
 		panic("failed to delete snapshots by target: " + err.Error())
 	}

@@ -38,11 +38,12 @@ func NewTrackerClientWithResty(client *resty.Client) *TrackerClient {
 	return &TrackerClient{resty: client}
 }
 
-func (c *TrackerClient) GetBestSnapshots(ctx context.Context, count int) (sources []types.SnapshotSource, err error) {
+func (c *TrackerClient) GetBestSnapshots(ctx context.Context, group string, count int) (sources []types.SnapshotSource, err error) {
 	res, err := c.resty.R().
 		SetContext(ctx).
 		SetHeader("accept", "application/json").
 		SetQueryParam("max", strconv.Itoa(count)).
+		SetQueryParam("group", group).
 		SetResult(&sources).
 		Get("/v1/best_snapshots")
 	if err != nil {
@@ -54,11 +55,12 @@ func (c *TrackerClient) GetBestSnapshots(ctx context.Context, count int) (source
 	return
 }
 
-func (c *TrackerClient) GetSnapshotAtSlot(ctx context.Context, slot uint64) (sources []types.SnapshotSource, err error) {
+func (c *TrackerClient) GetSnapshotAtSlot(ctx context.Context, group string, slot uint64) (sources []types.SnapshotSource, err error) {
 	res, err := c.resty.R().
 		SetContext(ctx).
 		SetHeader("accept", "application/json").
 		SetQueryParam("slot", strconv.FormatUint(slot, 10)).
+		SetQueryParam("group", group).
 		SetResult(&sources).
 		Get("/v1/snapshots")
 	if err != nil {
