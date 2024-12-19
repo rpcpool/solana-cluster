@@ -51,6 +51,7 @@ func (h *Handler) createJson(c *gin.Context, entries []*index.SnapshotEntry) {
 		sources[i] = types.SnapshotSource{
 			SnapshotInfo: *entry.Info,
 			Target:       entry.Target,
+			Group:        entry.Group,
 			UpdatedAt:    entry.UpdatedAt,
 		}
 	}
@@ -110,7 +111,7 @@ func (h *Handler) Health(c *gin.Context) {
 		return
 	}
 	query.Max = 1
-	entries := h.DB.GetBestSnapshots(query.Max)
+	entries := h.DB.GetBestSnapshotsByGroup(query.Group, query.Max)
 
 	var health struct {
 		MaxSnapshot uint64

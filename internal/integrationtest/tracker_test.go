@@ -119,6 +119,7 @@ func TestTracker(t *testing.T) {
 					},
 					TotalSize: 1,
 				},
+				Group: "test",
 			},
 			{
 				SnapshotInfo: types.SnapshotInfo{
@@ -136,6 +137,7 @@ func TestTracker(t *testing.T) {
 					},
 					TotalSize: 1,
 				},
+				Group: "test",
 			},
 			{
 				SnapshotInfo: types.SnapshotInfo{
@@ -153,6 +155,7 @@ func TestTracker(t *testing.T) {
 					},
 					TotalSize: 1,
 				},
+				Group: "test",
 			},
 			{
 				SnapshotInfo: types.SnapshotInfo{
@@ -170,6 +173,7 @@ func TestTracker(t *testing.T) {
 					},
 					TotalSize: 1,
 				},
+				Group: "test",
 			},
 		},
 		snaps)

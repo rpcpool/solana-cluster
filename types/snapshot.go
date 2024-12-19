@@ -25,6 +25,7 @@ import (
 type SnapshotSource struct {
 	SnapshotInfo
 	Target    string    `json:"target"`
+	Group     string    `json:"group"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 

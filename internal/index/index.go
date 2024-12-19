@@ -67,9 +67,8 @@ func (d *DB) GetSnapshotsByTarget(group string, target string) (entries []*Snaps
 	return
 }
 
-// GetAllSnapshots returns a list of all snapshots.
-func (d *DB) GetAllSnapshots() (entries []*SnapshotEntry) {
-	iter, err := d.DB.Txn(false).LowerBound(tableSnapshotEntry, "id", "", uint64(0))
+func (d *DB) GetAllSnapshotsByGroup(group string) (entries []*SnapshotEntry) {
+	iter, err := d.DB.Txn(false).LowerBound(tableSnapshotEntry, "id", "", "", uint64(0))
 	if err != nil {
 		panic("getting best snapshots failed: " + err.Error())
 	}
@@ -77,34 +76,25 @@ func (d *DB) GetAllSnapshots() (entries []*SnapshotEntry) {
 		el := iter.Next()
 		if el == nil {
 			break
+		}
+		if group != "" && el.(*SnapshotEntry).Group != group {
+			continue
 		}
 		entries = append(entries, el.(*SnapshotEntry))
 	}
 	return
 }
 
-func (d *DB) GetAllSnapshotsByGroup(group string) (entries []*SnapshotEntry) {
-	iter, err := d.DB.Txn(false).LowerBound(tableSnapshotEntry, "id_prefix", group, "", uint64(0))
-	if err != nil {
-		panic("getting best snapshots failed: " + err.Error())
-	}
-	for {
-		el := iter.Next()
-		if el == nil {
-			break
-		}
-		entries = append(entries, el.(*SnapshotEntry))
-	}
-	return
+// GetAllSnapshots returns a list of all snapshots.
+func (d *DB) GetAllSnapshots() (entries []*SnapshotEntry) {
+	return d.GetAllSnapshotsByGroup("")
 }
 
 // GetBestSnapshots returns newest-to-oldest snapshots.
 // The `max` argument controls the max number of snapshots to return.
 // If max is negative, it returns all snapshots.
 func (d *DB) GetBestSnapshotsByGroup(group string, max int) (entries []*SnapshotEntry) {
-	var res memdb.ResultIterator
-	var err error
-	res, err = d.DB.Txn(false).Get(tableSnapshotEntry, "slot")
+	res, err := d.DB.Txn(false).Get(tableSnapshotEntry, "slot")
 
 	if err != nil {
 		panic("getting best snapshots failed: " + err.Error())
