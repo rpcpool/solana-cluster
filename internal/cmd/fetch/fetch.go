@@ -49,6 +49,7 @@ var Cmd = cobra.Command{
 var (
 	ledgerDir       string
 	trackerURL      string
+	group           string
 	minSnapAge      uint64
 	maxSnapAge      uint64
 	baseSlot        uint64
@@ -62,6 +63,7 @@ func init() {
 	flags := Cmd.Flags()
 	flags.StringVar(&ledgerDir, "ledger", "", "Path to ledger dir")
 	flags.StringVar(&trackerURL, "tracker", "", "Download as instructed by given tracker URL")
+	flags.StringVar(&group, "group", "", "Download from specified group")
 	flags.Uint64Var(&minSnapAge, "min-slots", 500, "Download only snapshots <n> slots newer than local")
 	flags.Uint64Var(&maxSnapAge, "max-slots", 10000, "Refuse to download <n> slots older than the newest")
 	flags.DurationVar(&requestTimeout, "request-timeout", 3*time.Second, "Max time to wait for headers (excluding download)")
@@ -109,7 +111,7 @@ func run() {
 		log.Info("Fetching snapshots at slot", zap.Uint64("base_slot", baseSlot))
 
 		// Ask tracker for snapshots at a specific location
-		remoteSnaps, err = trackerClient.GetSnapshotAtSlot(ctx, baseSlot)
+		remoteSnaps, err = trackerClient.GetSnapshotAtSlot(ctx, group, baseSlot)
 		if err != nil {
 			log.Fatal("Failed to fetch snapshot info", zap.Error(err))
 		}
@@ -122,7 +124,7 @@ func run() {
 		log.Info("Finding best snapshot")
 
 		// Ask tracker for best snapshots.
-		remoteSnaps, err = trackerClient.GetBestSnapshots(ctx, -1)
+		remoteSnaps, err = trackerClient.GetBestSnapshots(ctx, group, -1)
 		if err != nil {
 			log.Fatal("Failed to request snapshot info", zap.Error(err))
 		}
@@ -145,7 +147,7 @@ func run() {
 				// If we are not fetching a full snapshot and the base slot isn't matching
 				// we need to fetch an older incremental snapshot.
 				log.Info("Full snapshot is newer than local, but not requested")
-				remoteSnaps, err = trackerClient.GetSnapshotAtSlot(ctx, localSnaps[0].BaseSlot)
+				remoteSnaps, err = trackerClient.GetSnapshotAtSlot(ctx, group, localSnaps[0].BaseSlot)
 				if err != nil {
 					log.Fatal("Failed to request snapshot info", zap.Error(err))
 				}
@@ -204,7 +206,7 @@ func run() {
 			// If we were downloading a full snapshot, check if there's a newer incremental snapshot we can fetch
 			// Find latest incremental snapshot
 			log.Info("Finding incremental snapshot for full slot", zap.Uint64("base_slot", snap.BaseSlot))
-			remoteSnaps, err = trackerClient.GetSnapshotAtSlot(ctx, snap.BaseSlot)
+			remoteSnaps, err = trackerClient.GetSnapshotAtSlot(ctx, group, snap.BaseSlot)
 			if err != nil {
 				log.Fatal("Failed to request snapshot info", zap.Error(err))
 			}

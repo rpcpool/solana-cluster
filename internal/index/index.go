@@ -83,10 +83,25 @@ func (d *DB) GetAllSnapshots() (entries []*SnapshotEntry) {
 	return
 }
 
+func (d *DB) GetAllSnapshotsByGroup(group string) (entries []*SnapshotEntry) {
+	iter, err := d.DB.Txn(false).LowerBound(tableSnapshotEntry, "id_prefix", group, "", uint64(0))
+	if err != nil {
+		panic("getting best snapshots failed: " + err.Error())
+	}
+	for {
+		el := iter.Next()
+		if el == nil {
+			break
+		}
+		entries = append(entries, el.(*SnapshotEntry))
+	}
+	return
+}
+
 // GetBestSnapshots returns newest-to-oldest snapshots.
 // The `max` argument controls the max number of snapshots to return.
 // If max is negative, it returns all snapshots.
-func (d *DB) GetBestSnapshotsByGroup(max int, group string) (entries []*SnapshotEntry) {
+func (d *DB) GetBestSnapshotsByGroup(group string, max int) (entries []*SnapshotEntry) {
 	var res memdb.ResultIterator
 	var err error
 	res, err = d.DB.Txn(false).Get(tableSnapshotEntry, "slot")
@@ -130,7 +145,7 @@ func (d *DB) GetSnapshotsAtSlotByGroup(group string, slot uint64) (entries []*Sn
 
 // Fetches the best snapshots
 func (d *DB) GetBestSnapshots(max int) (entries []*SnapshotEntry) {
-	return d.GetBestSnapshotsByGroup(max, "")
+	return d.GetBestSnapshotsByGroup("", max)
 }
 
 // Fetches the snapshots that are at a given slot.

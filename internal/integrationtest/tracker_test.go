@@ -87,7 +87,7 @@ func TestTracker(t *testing.T) {
 
 	// Create tracker client.
 	client := fetch.NewTrackerClientWithResty(resty.NewWithClient(server.Client()).SetHostURL(server.URL))
-	snaps, err := client.GetBestSnapshots(context.TODO(), -1)
+	snaps, err := client.GetBestSnapshots(context.TODO(), "", -1)
 	require.NoError(t, err)
 	// Remove timestamps and port numbers.
 	for i := range snaps {

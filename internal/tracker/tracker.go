@@ -59,17 +59,26 @@ func (h *Handler) createJson(c *gin.Context, entries []*index.SnapshotEntry) {
 
 func (h *Handler) GetSnapshots(c *gin.Context) {
 	var query struct {
-		Slot uint64 `form:"slot"`
+		Slot  uint64 `form:"slot"`
+		Group string `form:"group"`
 	}
 	if err := c.BindQuery(&query); err != nil {
 		return
 	}
 
 	var entries []*index.SnapshotEntry
-	if query.Slot == 0 {
-		entries = h.DB.GetAllSnapshots()
+	if query.Group == "" {
+		if query.Slot == 0 {
+			entries = h.DB.GetAllSnapshots()
+		} else {
+			entries = h.DB.GetSnapshotsAtSlot(query.Slot)
+		}
 	} else {
-		entries = h.DB.GetSnapshotsAtSlot(query.Slot)
+		if query.Slot == 0 {
+			entries = h.DB.GetAllSnapshotsByGroup(query.Group)
+		} else {
+			entries = h.DB.GetSnapshotsAtSlotByGroup(query.Group, query.Slot)
+		}
 	}
 
 	h.createJson(c, entries)
@@ -78,7 +87,8 @@ func (h *Handler) GetSnapshots(c *gin.Context) {
 // GetBestSnapshots returns the currently available best snapshots.
 func (h *Handler) GetBestSnapshots(c *gin.Context) {
 	var query struct {
-		Max int `form:"max"`
+		Max   int    `form:"max"`
+		Group string `form:"group"`
 	}
 	if err := c.BindQuery(&query); err != nil {
 		return
@@ -87,13 +97,14 @@ func (h *Handler) GetBestSnapshots(c *gin.Context) {
 	if query.Max < 0 || query.Max > maxItems {
 		query.Max = maxItems
 	}
-	entries := h.DB.GetBestSnapshots(query.Max)
+	entries := h.DB.GetBestSnapshotsByGroup(query.Group, query.Max)
 	h.createJson(c, entries)
 }
 
 func (h *Handler) Health(c *gin.Context) {
 	var query struct {
-		Max int `form:"max"`
+		Max   int    `form:"max"`
+		Group string `form:"group"`
 	}
 	if err := c.BindQuery(&query); err != nil {
 		return
