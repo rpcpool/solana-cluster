@@ -1,0 +1,21 @@
+# Values used on the healthcheck
+scrape_interval: 15s
+
+target_groups:
+# A group of nodes on the same Solana network.
+  - group: "mainnet"
+
+# ------------------------------------------------
+# Snapshot retrieval
+# ------------------------------------------------
+
+# URL scheme, use "http" or "https".
+    scheme: http
+
+# ------------------------------------------------
+# Discovery
+# ------------------------------------------------
+    consul_sd_config:
+          host: localhost:8500
+          service: solana-sidecar-mainnet
+
