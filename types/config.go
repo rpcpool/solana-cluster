@@ -28,6 +28,7 @@ import (
 type Config struct {
 	ScrapeInterval         time.Duration  `json:"scrape_interval" yaml:"scrape_interval"`
 	ProxySnapshotDownloads bool           `json:"proxy_snapshot_downloads" yaml:"proxy_snapshot_downloads"`
+	ProxySnapshotCacheDir  string         `json:"proxy_snapshot_cache_dir" yaml:"proxy_snapshot_cache_dir"`
 	TargetGroups           []*TargetGroup `json:"target_groups" yaml:"target_groups"`
 }
 

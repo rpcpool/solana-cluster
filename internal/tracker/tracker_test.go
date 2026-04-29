@@ -18,6 +18,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -189,6 +192,106 @@ func TestHandler_RedirectsConcreteSnapshotWhenProxyDisabled(t *testing.T) {
 
 	assert.Equal(t, http.StatusSeeOther, res.Code)
 	assert.Equal(t, "http://sidecar:13080/v1"+fileName, res.Header().Get("Location"))
+}
+
+func TestHandler_CachesLatestProxiedSnapshotDownload(t *testing.T) {
+	const fileName = "/snapshot-500-AvFf9oS8A8U78HdjT9YG2sTTThLHJZmhaMn2g8vkWYnr.tar.zst"
+	const body = "snapshot-data"
+
+	var upstreamRequests int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&upstreamRequests, 1)
+		assert.Equal(t, fileName, r.URL.Path)
+		w.Header().Set("Content-Length", "13")
+		w.Header().Set("Content-Type", "application/zstd")
+		if r.Method == http.MethodHead {
+			return
+		}
+		_, err := w.Write([]byte(body))
+		require.NoError(t, err)
+	}))
+	defer upstream.Close()
+
+	cacheDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(cacheDir, "snapshot-1-AvFf9oS8A8U78HdjT9YG2sTTThLHJZmhaMn2g8vkWYnr.tar.zst"), []byte("old"), 0o600))
+
+	db := index.NewDB()
+	db.UpsertSnapshots(snapshotEntry("mainnet", upstream.URL, 500, 500, []*types.SnapshotFile{
+		snapshotFile(upstream.URL+fileName, 500, 0),
+	}))
+
+	handler := NewHandler(db, "http://localhost:8899", 1000)
+	handler.ProxySnapshotDownloads = true
+	handler.ProxySnapshotCacheDir = cacheDir
+	handler.HTTPClient = upstream.Client()
+	router := newTrackerRouterWithHandler(handler)
+
+	req, err := http.NewRequest(http.MethodGet, "/v1"+fileName+"?group=mainnet", nil)
+	require.NoError(t, err)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, body, res.Body.String())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&upstreamRequests))
+	assert.FileExists(t, filepath.Join(cacheDir, "snapshot-500-AvFf9oS8A8U78HdjT9YG2sTTThLHJZmhaMn2g8vkWYnr.tar.zst"))
+	assert.NoFileExists(t, filepath.Join(cacheDir, "snapshot-1-AvFf9oS8A8U78HdjT9YG2sTTThLHJZmhaMn2g8vkWYnr.tar.zst"))
+
+	req, err = http.NewRequest(http.MethodGet, "/v1"+fileName+"?group=mainnet", nil)
+	require.NoError(t, err)
+	res = httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, body, res.Body.String())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&upstreamRequests))
+
+	req, err = http.NewRequest(http.MethodHead, "/v1"+fileName+"?group=mainnet", nil)
+	require.NoError(t, err)
+	res = httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, "13", res.Header().Get("Content-Length"))
+	assert.Empty(t, res.Body.String())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&upstreamRequests))
+}
+
+func TestHandler_ProxiesWithoutCachingWhenCacheRefreshInProgress(t *testing.T) {
+	const fileName = "/snapshot-500-AvFf9oS8A8U78HdjT9YG2sTTThLHJZmhaMn2g8vkWYnr.tar.zst"
+	const body = "snapshot-data"
+
+	var upstreamRequests int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&upstreamRequests, 1)
+		_, err := w.Write([]byte(body))
+		require.NoError(t, err)
+	}))
+	defer upstream.Close()
+
+	cacheDir := t.TempDir()
+	db := index.NewDB()
+	db.UpsertSnapshots(snapshotEntry("mainnet", upstream.URL, 500, 500, []*types.SnapshotFile{
+		snapshotFile(upstream.URL+fileName, 500, 0),
+	}))
+
+	handler := NewHandler(db, "http://localhost:8899", 1000)
+	handler.ProxySnapshotDownloads = true
+	handler.ProxySnapshotCacheDir = cacheDir
+	handler.HTTPClient = upstream.Client()
+	handler.cacheMu.Lock()
+	router := newTrackerRouterWithHandler(handler)
+
+	req, err := http.NewRequest(http.MethodGet, "/v1"+fileName+"?group=mainnet", nil)
+	require.NoError(t, err)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, body, res.Body.String())
+	assert.Equal(t, int32(1), atomic.LoadInt32(&upstreamRequests))
+	assert.NoFileExists(t, filepath.Join(cacheDir, "snapshot-500-AvFf9oS8A8U78HdjT9YG2sTTThLHJZmhaMn2g8vkWYnr.tar.zst"))
+	handler.cacheMu.Unlock()
 }
 
 func newTrackerRouter(db *index.DB) http.Handler {

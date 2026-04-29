@@ -65,6 +65,7 @@ func TestLoadConfigProxySnapshotDownloads(t *testing.T) {
 	err := os.WriteFile(configFile, []byte(`
 scrape_interval: 15s
 proxy_snapshot_downloads: true
+proxy_snapshot_cache_dir: /var/cache/solana-snapshots
 target_groups:
   - group: mainnet
     http_targets:
@@ -77,4 +78,5 @@ target_groups:
 	require.NoError(t, err)
 
 	assert.True(t, actual.ProxySnapshotDownloads)
+	assert.Equal(t, "/var/cache/solana-snapshots", actual.ProxySnapshotCacheDir)
 }

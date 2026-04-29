@@ -117,6 +117,7 @@ func run() {
 
 	handler := tracker.NewHandler(db, rpc, maxSnapshotAge)
 	handler.ProxySnapshotDownloads = config.ProxySnapshotDownloads
+	handler.ProxySnapshotCacheDir = config.ProxySnapshotCacheDir
 	handler.RegisterHandlers(server.Group("/v1"))
 
 	// Start services.

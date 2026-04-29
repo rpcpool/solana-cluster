@@ -21,8 +21,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/gagliardetto/solana-go/rpc"
@@ -38,7 +41,9 @@ type Handler struct {
 	RPC                    *rpc.Client
 	MaxSnapshotAge         uint64
 	ProxySnapshotDownloads bool
+	ProxySnapshotCacheDir  string
 	HTTPClient             *http.Client
+	cacheMu                sync.Mutex
 }
 
 // NewHandler creates a new tracker API using the provided database.
@@ -213,6 +218,12 @@ func (h *Handler) DownloadSnapshot(c *gin.Context) {
 		c.Redirect(http.StatusSeeOther, location)
 		return
 	}
+	if h.canUseSnapshotCache(query.Group, file) {
+		if err := h.serveCachedOrProxySnapshot(c, query.Group, file, location); err != nil {
+			c.String(http.StatusBadGateway, "proxy snapshot download: %s", err)
+		}
+		return
+	}
 	if err := h.proxySnapshot(c, location); err != nil {
 		c.String(http.StatusBadGateway, "proxy snapshot download: %s", err)
 	}
@@ -282,6 +293,143 @@ func snapshotFileBase(fileName string) string {
 		return path.Base(fileURL.Path)
 	}
 	return filepath.Base(fileName)
+}
+
+func (h *Handler) canUseSnapshotCache(group string, file *types.SnapshotFile) bool {
+	if h.ProxySnapshotCacheDir == "" {
+		return false
+	}
+	best := h.bestSnapshotFile(group, file.IsFull())
+	if best == nil {
+		return false
+	}
+	return snapshotFileBase(best.FileName) == snapshotFileBase(file.FileName)
+}
+
+func (h *Handler) bestSnapshotFile(group string, full bool) *types.SnapshotFile {
+	var best *types.SnapshotFile
+	for _, entry := range h.DB.GetBestSnapshotsByGroup(group, -1) {
+		for _, file := range entry.Info.Files {
+			if file.IsFull() != full {
+				continue
+			}
+			if best == nil || file.Compare(best) > 0 {
+				best = file
+			}
+		}
+	}
+	return best
+}
+
+func (h *Handler) serveCachedOrProxySnapshot(c *gin.Context, group string, file *types.SnapshotFile, location string) error {
+	name := snapshotFileBase(file.FileName)
+	if h.cachedSnapshotMatches(name) {
+		return h.serveCachedSnapshot(c, name)
+	}
+
+	if c.Request.Method == http.MethodHead || c.Request.Header.Get("Range") != "" || !h.cacheMu.TryLock() {
+		return h.proxySnapshot(c, location)
+	}
+	defer h.cacheMu.Unlock()
+
+	if !h.canUseSnapshotCache(group, file) {
+		return h.proxySnapshot(c, location)
+	}
+	if h.cachedSnapshotMatches(name) {
+		return h.serveCachedSnapshot(c, name)
+	}
+	if err := h.prepareSnapshotCache(name); err != nil {
+		return err
+	}
+	return h.proxyAndCacheSnapshot(c, location, name)
+}
+
+func (h *Handler) cachedSnapshotMatches(name string) bool {
+	_, err := os.Stat(filepath.Join(h.ProxySnapshotCacheDir, name))
+	return err == nil
+}
+
+func (h *Handler) serveCachedSnapshot(c *gin.Context, name string) error {
+	filePath := filepath.Join(h.ProxySnapshotCacheDir, name)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	http.ServeContent(c.Writer, c.Request, name, stat.ModTime(), file)
+	return nil
+}
+
+func (h *Handler) prepareSnapshotCache(name string) error {
+	if err := os.MkdirAll(h.ProxySnapshotCacheDir, 0755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(h.ProxySnapshotCacheDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.Name() == name {
+			continue
+		}
+		if ledger.ParseSnapshotFileName(entry.Name()) == nil && !strings.HasPrefix(entry.Name(), ".tmp-") {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(h.ProxySnapshotCacheDir, entry.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *Handler) proxyAndCacheSnapshot(c *gin.Context, location string, name string) error {
+	req, err := http.NewRequestWithContext(c.Request.Context(), c.Request.Method, location, nil)
+	if err != nil {
+		return err
+	}
+	copyProxyHeaders(req.Header, c.Request.Header)
+
+	client := h.HTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	tmpFile, err := os.CreateTemp(h.ProxySnapshotCacheDir, ".tmp-"+name+".")
+	if err != nil {
+		copyProxyHeaders(c.Writer.Header(), res.Header)
+		c.Writer.WriteHeader(res.StatusCode)
+		_, _ = io.Copy(c.Writer, res.Body)
+		return nil
+	}
+	tmpName := tmpFile.Name()
+	defer func() {
+		_ = os.Remove(tmpName)
+	}()
+
+	copyProxyHeaders(c.Writer.Header(), res.Header)
+	c.Writer.WriteHeader(res.StatusCode)
+
+	_, copyErr := io.Copy(c.Writer, io.TeeReader(res.Body, tmpFile))
+	closeErr := tmpFile.Close()
+	if copyErr != nil {
+		return fmt.Errorf("copy response body: %w", copyErr)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil
+	}
+	return os.Rename(tmpName, filepath.Join(h.ProxySnapshotCacheDir, name))
 }
 
 func (h *Handler) proxySnapshot(c *gin.Context, location string) error {
