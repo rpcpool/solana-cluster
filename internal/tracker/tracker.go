@@ -338,6 +338,9 @@ func (h *Handler) serveCachedOrProxySnapshot(c *gin.Context, group string, file 
 	if h.cachedSnapshotMatches(name) {
 		return h.serveCachedSnapshot(c, name)
 	}
+	// prepareSnapshotCache removes stale cached archives before the refresh is
+	// fetched. If this request is interrupted or the upstream fetch fails, the
+	// cache remains empty until a later successful request repopulates it.
 	if err := h.prepareSnapshotCache(name); err != nil {
 		return err
 	}
