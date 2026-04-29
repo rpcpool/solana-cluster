@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.blockdaemon.com/solana/cluster-manager/internal/ledgertest"
 	"go.uber.org/zap/zaptest"
 )
 
@@ -46,4 +47,47 @@ func TestHandler_ListSnapshots_Error(t *testing.T) {
 
 	res := testRequest(h, req)
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
+}
+
+func TestHandler_RedirectsBestSnapshots(t *testing.T) {
+	const hash = "AvFf9oS8A8U78HdjT9YG2sTTThLHJZmhaMn2g8vkWYnr"
+	root := ledgertest.NewFS(t)
+	root.AddFakeFile(t, "snapshot-100-"+hash+".tar.bz2")
+	root.AddFakeFile(t, "snapshot-200-"+hash+".tar.zst")
+	root.AddFakeFile(t, "incremental-snapshot-200-300-"+hash+".tar.zst")
+
+	h := &SnapshotHandler{
+		LedgerDir: root.GetLedgerDir(t),
+		Log:       zaptest.NewLogger(t),
+	}
+
+	req, err := http.NewRequest(http.MethodHead, "/snapshot.tar.bz2", nil)
+	require.NoError(t, err)
+	res := testRequest(h, req)
+	assert.Equal(t, http.StatusSeeOther, res.Code)
+	assert.Equal(t, "/snapshot-200-"+hash+".tar.zst", res.Header().Get("Location"))
+
+	req, err = http.NewRequest(http.MethodHead, "/incremental-snapshot.tar.zst", nil)
+	require.NoError(t, err)
+	res = testRequest(h, req)
+	assert.Equal(t, http.StatusSeeOther, res.Code)
+	assert.Equal(t, "/incremental-snapshot-200-300-"+hash+".tar.zst", res.Header().Get("Location"))
+}
+
+func TestHandler_DownloadRedirectTarget(t *testing.T) {
+	const name = "snapshot-100-AvFf9oS8A8U78HdjT9YG2sTTThLHJZmhaMn2g8vkWYnr.tar.bz2"
+	root := ledgertest.NewFS(t)
+	root.AddFakeFile(t, name)
+
+	h := &SnapshotHandler{
+		LedgerDir: root.GetLedgerDir(t),
+		Log:       zaptest.NewLogger(t),
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "/"+name, nil)
+	require.NoError(t, err)
+
+	res := testRequest(h, req)
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, "1", res.Header().Get("Content-Length"))
 }
