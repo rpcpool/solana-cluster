@@ -96,6 +96,12 @@ func run() {
 		},
 	))
 
+	// Create config reloader.
+	config, err := types.LoadConfig(configPath)
+	if err != nil {
+		log.Fatal("Failed to load config", zap.Error(err))
+	}
+
 	// Create result collector.
 	db := index.NewDB()
 	collector := scraper.NewCollector(db)
@@ -110,6 +116,7 @@ func run() {
 	server.Use(ginzap.RecoveryWithZap(httpLog, false))
 
 	handler := tracker.NewHandler(db, rpc, maxSnapshotAge)
+	handler.ProxySnapshotDownloads = config.ProxySnapshotDownloads
 	handler.RegisterHandlers(server.Group("/v1"))
 
 	// Start services.
@@ -120,12 +127,6 @@ func run() {
 	runGroupServer(ctx, group, internalListen, nil) // default handler
 	httpLog.Info("Starting server", zap.String("listen", listen))
 	runGroupServer(ctx, group, listen, server) // public handler
-
-	// Create config reloader.
-	config, err := types.LoadConfig(configPath)
-	if err != nil {
-		log.Fatal("Failed to load config", zap.Error(err))
-	}
 
 	// Create scrape managers.
 	manager := scraper.NewManager(collector.Probes())

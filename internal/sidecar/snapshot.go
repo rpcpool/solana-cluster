@@ -21,6 +21,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path"
 
 	"github.com/gin-gonic/gin"
 	"go.blockdaemon.com/solana/cluster-manager/internal/ledger"
@@ -49,8 +50,14 @@ func (s *SnapshotHandler) RegisterHandlers(group gin.IRoutes) {
 	group.GET("/snapshot.tar.bz2", s.DownloadBestSnapshot)
 	group.HEAD("/snapshot.tar.zst", s.DownloadBestSnapshot)
 	group.GET("/snapshot.tar.zst", s.DownloadBestSnapshot)
+	group.HEAD("/incremental-snapshot.tar.bz2", s.DownloadBestIncrementalSnapshot)
+	group.GET("/incremental-snapshot.tar.bz2", s.DownloadBestIncrementalSnapshot)
+	group.HEAD("/incremental-snapshot.tar.zst", s.DownloadBestIncrementalSnapshot)
+	group.GET("/incremental-snapshot.tar.zst", s.DownloadBestIncrementalSnapshot)
 	group.HEAD("/snapshot/:name", s.DownloadSnapshot)
 	group.GET("/snapshot/:name", s.DownloadSnapshot)
+	group.HEAD("/:name", s.DownloadSnapshot)
+	group.GET("/:name", s.DownloadSnapshot)
 }
 
 // ListSnapshots is an API handler listing available snapshots on the node.
@@ -67,8 +74,17 @@ func (s *SnapshotHandler) ListSnapshots(c *gin.Context) {
 	c.JSON(http.StatusOK, infos)
 }
 
-// DownloadBestSnapshot selects the best full snapshot and sends it to the client.
+// DownloadBestSnapshot selects the best full snapshot and redirects the client to it.
 func (s *SnapshotHandler) DownloadBestSnapshot(c *gin.Context) {
+	s.redirectBestSnapshot(c, true)
+}
+
+// DownloadBestIncrementalSnapshot selects the best incremental snapshot and redirects the client to it.
+func (s *SnapshotHandler) DownloadBestIncrementalSnapshot(c *gin.Context) {
+	s.redirectBestSnapshot(c, false)
+}
+
+func (s *SnapshotHandler) redirectBestSnapshot(c *gin.Context, full bool) {
 	files, err := ledger.ListSnapshotFiles(s.LedgerDir)
 	if err != nil {
 		s.Log.Error("Failed to list snapshot files", zap.Error(err))
@@ -76,8 +92,9 @@ func (s *SnapshotHandler) DownloadBestSnapshot(c *gin.Context) {
 		return
 	}
 	for _, file := range files {
-		if file.IsFull() {
-			s.serveSnapshot(c, file.FileName)
+		if file.IsFull() == full {
+			location := path.Join(path.Dir(c.Request.URL.Path), file.FileName)
+			c.Redirect(http.StatusSeeOther, location)
 			return
 		}
 	}

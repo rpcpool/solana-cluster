@@ -1,5 +1,9 @@
 scrape_interval: 15s
 
+# Proxy concrete snapshot downloads through the tracker instead of redirecting
+# clients to sidecars or HTTP snapshot targets directly.
+proxy_snapshot_downloads: false
+
 target_groups:
   # A group of nodes on the same Solana network.
   - group: mainnet
