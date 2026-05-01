@@ -87,19 +87,14 @@ func (h *Handler) snapshotSource(c *gin.Context, entry *index.SnapshotEntry) typ
 	for i, file := range entry.Info.Files {
 		fileCopy := *file
 		if h.ProxySnapshotDownloads {
-			fileCopy.FileName = concreteSnapshotURL(c.Request, entry.Group, file.FileName)
+			fileCopy.DownloadURL = concreteSnapshotURL(c.Request, entry.Group, file.FileName)
 		}
 		info.Files[i] = &fileCopy
 	}
 
-	target := entry.Target
-	if h.ProxySnapshotDownloads {
-		target = trackerBaseURL(c.Request)
-	}
-
 	return types.SnapshotSource{
 		SnapshotInfo: info,
-		Target:       target,
+		Target:       entry.Target,
 		Group:        entry.Group,
 		UpdatedAt:    entry.UpdatedAt,
 	}

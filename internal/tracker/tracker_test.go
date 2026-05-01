@@ -143,12 +143,17 @@ func TestHandler_ProxiesSnapshotDownloads(t *testing.T) {
 	assert.Empty(t, res.Body.String())
 }
 
-func TestHandler_ProxySnapshotDownloadsRewritesSnapshotAPIs(t *testing.T) {
+func TestHandler_ProxySnapshotDownloadsRewritesDownloadURLOnly(t *testing.T) {
 	const hash = "AvFf9oS8A8U78HdjT9YG2sTTThLHJZmhaMn2g8vkWYnr"
+	const target = "https://snapshots.example.com"
+	const fileName = "snapshot-500-" + hash + ".tar.zst"
+	const downloadURL = target + "/" + fileName
 
 	db := index.NewDB()
-	db.UpsertSnapshots(snapshotEntry("mainnet", "https://snapshots.example.com", 500, 500, []*types.SnapshotFile{
-		snapshotFile("https://snapshots.example.com/snapshot-500-"+hash+".tar.zst", 500, 0),
+	file := snapshotFile(fileName, 500, 0)
+	file.DownloadURL = downloadURL
+	db.UpsertSnapshots(snapshotEntry("mainnet", target, 500, 500, []*types.SnapshotFile{
+		file,
 	}))
 
 	handler := NewHandler(db, "http://localhost:8899", 1000)
@@ -171,9 +176,10 @@ func TestHandler_ProxySnapshotDownloadsRewritesSnapshotAPIs(t *testing.T) {
 		var sources []types.SnapshotSource
 		require.NoError(t, json.Unmarshal(res.Body.Bytes(), &sources))
 		require.Len(t, sources, 1)
-		assert.Equal(t, "https://tracker.example.com", sources[0].Target)
+		assert.Equal(t, target, sources[0].Target)
 		require.Len(t, sources[0].Files, 1)
-		assert.Equal(t, "https://tracker.example.com/v1/snapshot-500-"+hash+".tar.zst?group=mainnet", sources[0].Files[0].FileName)
+		assert.Equal(t, fileName, sources[0].Files[0].FileName)
+		assert.Equal(t, "https://tracker.example.com/v1/"+fileName+"?group=mainnet", sources[0].Files[0].DownloadURL)
 	}
 }
 
