@@ -99,7 +99,19 @@ func (p *Prober) Probe(ctx context.Context, target string) ([]*types.SnapshotInf
 		Host:   target,
 		Path:   p.apiPath,
 	}
-	return fetch.NewSidecarClient(u.String()).ListSnapshots(ctx)
+	infos, err := fetch.NewSidecarClient(u.String()).ListSnapshots(ctx)
+	if err != nil {
+		return nil, err
+	}
+	baseURL := u.String()
+	for _, info := range infos {
+		for _, file := range info.Files {
+			if file.DownloadURL == "" {
+				file.DownloadURL = baseURL + "/v1/snapshot/" + url.PathEscape(file.FileName)
+			}
+		}
+	}
+	return infos, nil
 }
 
 func (p *Prober) ProbeTarget(target string) string {
@@ -190,6 +202,6 @@ func (p *Prober) headSnapshot(ctx context.Context, target string, name string) (
 	if file == nil {
 		return nil, fmt.Errorf("parse snapshot filename from Location header: %q", location)
 	}
-	file.FileName = locationURL.String()
+	file.DownloadURL = locationURL.String()
 	return file, nil
 }

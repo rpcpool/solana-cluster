@@ -40,11 +40,12 @@ type SnapshotInfo struct {
 
 // SnapshotFile is a file that makes up a snapshot (either full or incremental).
 type SnapshotFile struct {
-	FileName string      `json:"file_name"`
-	Slot     uint64      `json:"slot"`
-	BaseSlot uint64      `json:"base_slot,omitempty"`
-	Hash     solana.Hash `json:"hash"`
-	Ext      string      `json:"ext"`
+	FileName    string      `json:"file_name"`
+	DownloadURL string      `json:"download_url,omitempty"`
+	Slot        uint64      `json:"slot"`
+	BaseSlot    uint64      `json:"base_slot,omitempty"`
+	Hash        solana.Hash `json:"hash"`
+	Ext         string      `json:"ext"`
 
 	ModTime *time.Time `json:"mod_time,omitempty"`
 	Size    uint64     `json:"size,omitempty"`

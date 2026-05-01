@@ -43,13 +43,16 @@ func TestProber_ProbeURL(t *testing.T) {
 	assert.Equal(t, uint64(100), infos[0].Slot)
 	assert.Equal(t, uint64(100), infos[0].BaseSlot)
 	require.Len(t, infos[0].Files, 1)
-	assert.Equal(t, server.URL+"/snapshot-100-"+hash+".tar.zst", infos[0].Files[0].FileName)
+	assert.Equal(t, "snapshot-100-"+hash+".tar.zst", infos[0].Files[0].FileName)
+	assert.Equal(t, server.URL+"/snapshot-100-"+hash+".tar.zst", infos[0].Files[0].DownloadURL)
 
 	assert.Equal(t, uint64(200), infos[1].Slot)
 	assert.Equal(t, uint64(100), infos[1].BaseSlot)
 	require.Len(t, infos[1].Files, 2)
-	assert.Equal(t, server.URL+"/incremental-snapshot-100-200-"+hash+".tar.zst", infos[1].Files[0].FileName)
-	assert.Equal(t, server.URL+"/snapshot-100-"+hash+".tar.zst", infos[1].Files[1].FileName)
+	assert.Equal(t, "incremental-snapshot-100-200-"+hash+".tar.zst", infos[1].Files[0].FileName)
+	assert.Equal(t, server.URL+"/incremental-snapshot-100-200-"+hash+".tar.zst", infos[1].Files[0].DownloadURL)
+	assert.Equal(t, "snapshot-100-"+hash+".tar.zst", infos[1].Files[1].FileName)
+	assert.Equal(t, server.URL+"/snapshot-100-"+hash+".tar.zst", infos[1].Files[1].DownloadURL)
 }
 
 func TestProber_ProbeURLNoSnapshot(t *testing.T) {
