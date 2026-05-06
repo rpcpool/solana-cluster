@@ -40,5 +40,8 @@ func NewFromConfig(t *types.TargetGroup) (Discoverer, error) {
 	if t.ConsulSDConfig != nil {
 		return NewConsulFromConfig(t.ConsulSDConfig)
 	}
+	if t.HttpTargets != nil {
+		return t.HttpTargets, nil
+	}
 	return nil, fmt.Errorf("missing config")
 }

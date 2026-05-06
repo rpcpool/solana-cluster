@@ -1,0 +1,7 @@
+scrape_interval: 30s
+
+target_groups:
+  - group: mainnet
+    http_targets:
+      targets:
+        - https://api.mainnet.solana.com

@@ -57,6 +57,7 @@ type TargetGroup struct {
 	StaticTargets  *StaticTargets  `json:"static_targets" yaml:"static_targets"`
 	FileTargets    *FileTargets    `json:"file_targets" yaml:"file_targets"`
 	ConsulSDConfig *ConsulSDConfig `json:"consul_sd_config" yaml:"consul_sd_config"`
+	HttpTargets    *HttpTargets    `json:"http_targets" yaml:"http_targets"`
 }
 
 // StaticTargets is a hardcoded list of Solana nodes.
@@ -87,6 +88,15 @@ func (d *FileTargets) DiscoverTargets(_ context.Context) ([]string, error) {
 	}
 
 	return lines, scn.Err()
+}
+
+// HttpTargets is a hardcoded list of Solana snapshot URLs.
+type HttpTargets struct {
+	Targets []string `json:"targets" yaml:"targets"`
+}
+
+func (h *HttpTargets) DiscoverTargets(_ context.Context) ([]string, error) {
+	return h.Targets, nil
 }
 
 // ConsulSDConfig configures Consul service discovery.

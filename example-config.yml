@@ -27,13 +27,11 @@ target_groups:
     # file_targets:
     #   path: <filename>
 
-    # Discover targets from a HTTP server.
+    # Discover targets from URLs exposing /snapshot.tar.bz2 redirects.
     #
     # http_targets:
-    #   url: <string>
-    #   basic_auth: <...>
-    #   bearer_auth: <...>
-    #   tls_config: <...>
+    #   targets:
+    #     - https://api.mainnet.solana.com
 
     # ------------------------------------------------
     # Authentication

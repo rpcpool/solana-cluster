@@ -97,6 +97,9 @@ func TestTracker(t *testing.T) {
 		for _, file := range snap.Files {
 			assert.NotNil(t, file.ModTime)
 			file.ModTime = nil
+			assert.NotEmpty(t, file.DownloadURL)
+			assert.Contains(t, file.DownloadURL, "/v1/snapshot/"+file.FileName)
+			file.DownloadURL = ""
 		}
 		assert.NotEmpty(t, snap.Target)
 		snap.Target = ""

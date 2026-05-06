@@ -1,6 +1,7 @@
 package types
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -36,4 +37,25 @@ func TestLoadConfig(t *testing.T) {
 	}
 
 	assert.Equal(t, expected, actual)
+}
+
+func TestLoadConfigHttpTargets(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "config.yml")
+	err := os.WriteFile(configFile, []byte(`
+scrape_interval: 15s
+target_groups:
+  - group: mainnet
+    http_targets:
+      targets:
+        - https://api.mainnet.solana.com
+`), 0o600)
+	require.NoError(t, err)
+
+	actual, err := LoadConfig(configFile)
+	require.NoError(t, err)
+
+	require.Len(t, actual.TargetGroups, 1)
+	assert.Equal(t, &HttpTargets{
+		Targets: []string{"https://api.mainnet.solana.com"},
+	}, actual.TargetGroups[0].HttpTargets)
 }
