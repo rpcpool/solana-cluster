@@ -1,5 +1,13 @@
 scrape_interval: 15s
 
+# Proxy concrete snapshot downloads through the tracker instead of redirecting
+# clients to sidecars or HTTP snapshot targets directly.
+proxy_snapshot_downloads: false
+
+# Optional local cache for proxied concrete snapshot downloads. When enabled,
+# only the latest requested snapshot archive is kept.
+proxy_snapshot_cache_dir: ""
+
 target_groups:
   # A group of nodes on the same Solana network.
   - group: mainnet

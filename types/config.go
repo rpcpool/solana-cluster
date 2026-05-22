@@ -26,8 +26,10 @@ import (
 
 // Config describes the root-level config file.
 type Config struct {
-	ScrapeInterval time.Duration  `json:"scrape_interval" yaml:"scrape_interval"`
-	TargetGroups   []*TargetGroup `json:"target_groups" yaml:"target_groups"`
+	ScrapeInterval         time.Duration  `json:"scrape_interval" yaml:"scrape_interval"`
+	ProxySnapshotDownloads bool           `json:"proxy_snapshot_downloads" yaml:"proxy_snapshot_downloads"`
+	ProxySnapshotCacheDir  string         `json:"proxy_snapshot_cache_dir" yaml:"proxy_snapshot_cache_dir"`
+	TargetGroups           []*TargetGroup `json:"target_groups" yaml:"target_groups"`
 }
 
 // LoadConfig reads the config object from the file system.
