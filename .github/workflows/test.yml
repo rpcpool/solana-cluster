@@ -4,7 +4,9 @@ on:
 name: unit tests
 jobs:
   unit_tests:
-    runs-on: ubuntu-20.04
+    runs-on:
+      group: Public
+      labels: [self-hosted, rpcpool, public]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
