@@ -7,7 +7,7 @@ on:
 name: Build docker image
 jobs:
   build-docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Build Docker Image
     steps:
       - uses: actions/checkout@v3
